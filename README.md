@@ -9,7 +9,7 @@ A beautiful terminal-based analytics dashboard for Polymarket built with Go and 
 - **500+ Markets** - Fetches comprehensive market data from Polymarket, filters by active volume
 - **Search & Filter** - Real-time search and filter by category (Crypto, Politics, Sports, Entertainment)
 - **Multiple Sort Options** - Sort by Volume, Price Change, or Liquidity
-- **Multi-Page Interface** - Switch between Markets, Stats, and About pages
+- **Multi-Page Interface** - Switch between Markets and Analytics pages
 - **Real-time Data** - Live market data from Polymarket API with auto-refresh every 30 seconds
 - **Enhanced Market Details** - Beautiful detail view with:
   - Visual probability bar chart
@@ -61,8 +61,8 @@ go run main.go
 - `Ctrl+U` - Clear entire search
 - `Enter` or `Esc` - Exit search mode
 
-#### Stats/About Pages
-- `1/2/3` or `Tab` - Switch between pages
+#### Analytics Page
+- `1/2` or `Tab` - Switch between pages
 - `r` - Manual refresh
 - `a` - Toggle auto-refresh on/off
 - `q` or `Ctrl+C` - Quit
@@ -110,16 +110,14 @@ Browse and navigate trending prediction markets.
   - Liquidity - Most liquid markets first
 - Press `c` to clear all filters and reset
 
-### Page 2: Stats
-Detailed platform statistics and insights.
+### Page 2: Analytics
+Comprehensive platform analytics and rankings.
 
-**Components:**
-- **Platform Statistics** - Total/active markets, volumes, liquidity
-- **Top Market** - Highest 24h volume market with full details
-- **Biggest Mover** - Highest 24h price change with details
-
-### Page 3: About
-Information about Polyterm, features, tech stack, and open source details.
+**Sections:**
+- **Platform Overview** - Key metrics (total/active markets, volumes, liquidity)
+- **Top 10 by Total Volume** - Highest all-time volume markets with YES odds
+- **Top 10 by 24h Volume** - Hottest markets right now
+- **Biggest 24h Price Movers** - Markets with largest price changes (up or down)
 
 ## API
 

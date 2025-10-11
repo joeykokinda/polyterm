@@ -138,7 +138,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		
 		case "tab":
 			if m.currentView == viewList {
-				m.currentPage = (m.currentPage + 1) % 3
+				m.currentPage = (m.currentPage + 1) % 2
 				return m, nil
 			}
 			return m, nil
@@ -153,13 +153,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "2":
 			if m.currentView == viewList {
 				m.currentPage = pageStats
-				return m, nil
-			}
-			return m, nil
-		
-		case "3":
-			if m.currentView == viewList {
-				m.currentPage = pageAbout
 				return m, nil
 			}
 			return m, nil

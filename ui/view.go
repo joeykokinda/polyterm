@@ -2,10 +2,12 @@ package ui
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
 	"polyterm/api"
+	"polyterm/types"
 	
 	"github.com/charmbracelet/lipgloss"
 )
@@ -48,8 +50,6 @@ func (m Model) View() string {
 		return m.renderMarketsPage()
 	case pageStats:
 		return m.renderStatsPage()
-	case pageAbout:
-		return m.renderAboutPage()
 	default:
 		return m.renderMarketsPage()
 	}
@@ -79,7 +79,7 @@ func (m Model) renderMarketsPage() string {
 func (m Model) renderStatsPage() string {
 	header := m.renderHeader()
 	tabs := m.renderTabs()
-	statsDetail := m.renderDetailedStats()
+	statsDetail := m.renderAdvancedStats()
 	help := m.renderHelp()
 
 	return lipgloss.JoinVertical(
@@ -89,25 +89,6 @@ func (m Model) renderStatsPage() string {
 		tabs,
 		"",
 		statsDetail,
-		"",
-		help,
-	)
-}
-
-func (m Model) renderAboutPage() string {
-	header := m.renderHeader()
-	tabs := m.renderTabs()
-	about := m.renderAbout()
-	help := m.renderHelp()
-
-	return lipgloss.JoinVertical(
-		lipgloss.Left,
-		"",
-		header,
-		tabs,
-		"",
-		about,
-		"",
 		help,
 	)
 }
@@ -145,29 +126,26 @@ func (m Model) renderHeader() string {
 func (m Model) renderTabs() string {
 	activeTab := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(polyPink).
-		Background(polyDark).
+		Foreground(lipgloss.Color("#FFFFFF")).
+		Background(lipgloss.Color("#4F46E5")).
 		Padding(0, 2)
 	
 	inactiveTab := lipgloss.NewStyle().
-		Foreground(grayMuted).
-		Background(polyDark).
+		Foreground(lipgloss.Color("#9CA3AF")).
+		Background(lipgloss.Color("#1F2937")).
 		Padding(0, 2)
 	
 	tab1 := inactiveTab.Render("[1] Markets")
-	tab2 := inactiveTab.Render("[2] Stats")
-	tab3 := inactiveTab.Render("[3] About")
+	tab2 := inactiveTab.Render("[2] Analytics")
 	
 	switch m.currentPage {
 	case pageMarkets:
 		tab1 = activeTab.Render("[1] Markets")
 	case pageStats:
-		tab2 = activeTab.Render("[2] Stats")
-	case pageAbout:
-		tab3 = activeTab.Render("[3] About")
+		tab2 = activeTab.Render("[2] Analytics")
 	}
 	
-	return lipgloss.JoinHorizontal(lipgloss.Top, tab1, " ", tab2, " ", tab3)
+	return lipgloss.JoinHorizontal(lipgloss.Top, tab1, " ", tab2)
 }
 
 func (m Model) renderFilterBar() string {
@@ -361,7 +339,7 @@ func (m Model) renderHelp() string {
 			}
 		} else {
 			helps = []string{
-				"1/2/3 or tab: switch page",
+				"1/2 or tab: switch page",
 				"r: refresh",
 				"a: auto-refresh",
 				"q: quit",
@@ -376,7 +354,7 @@ func (m Model) renderHelp() string {
 	return HelpStyle.Render(strings.Join(helps, " | "))
 }
 
-func (m Model) renderDetailedStats() string {
+func (m Model) renderAdvancedStats() string {
 	if len(m.markets) == 0 {
 		return MutedStyle.Render("No data available")
 	}
@@ -385,116 +363,130 @@ func (m Model) renderDetailedStats() string {
 	
 	titleStyle := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(polyBlue).
-		MarginTop(1).
-		MarginBottom(1)
+		Foreground(lipgloss.Color("#FFFFFF")).
+		Background(lipgloss.Color("#1F2937")).
+		Padding(0, 2)
 	
-	sections = append(sections, titleStyle.Render("PLATFORM STATISTICS"))
+	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#9CA3AF"))
+	valueStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFFFF")).Bold(true)
 	
-	platformBox := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(polyBlue).
-		Padding(1, 3).
-		Render(lipgloss.JoinVertical(
-			lipgloss.Left,
-			StatsLabelStyle.Render("Total Markets: ")+StatsValueStyle.Render(fmt.Sprintf("%d", m.stats.TotalMarkets)),
-			StatsLabelStyle.Render("Active Markets: ")+StatsValueStyle.Render(fmt.Sprintf("%d", m.stats.ActiveMarkets)),
-			StatsLabelStyle.Render("24h Volume: ")+VolumeStyle.Render(formatCurrency(m.stats.Volume24h)),
-			StatsLabelStyle.Render("Total Volume: ")+StatsValueStyle.Render(formatCurrency(m.stats.TotalVolume)),
-			StatsLabelStyle.Render("Average Liquidity: ")+StatsValueStyle.Render(formatCurrency(m.stats.AvgLiquidity)),
-		))
+	sections = append(sections, titleStyle.Render("PLATFORM OVERVIEW"))
 	
-	sections = append(sections, platformBox)
+	platformStats := lipgloss.JoinVertical(
+		lipgloss.Left,
+		"",
+		labelStyle.Render("Total Markets:     ")+valueStyle.Render(fmt.Sprintf("%d", m.stats.TotalMarkets)),
+		labelStyle.Render("Active Markets:    ")+valueStyle.Render(fmt.Sprintf("%d", m.stats.ActiveMarkets)),
+		labelStyle.Render("24h Volume:        ")+valueStyle.Render(formatCurrency(m.stats.Volume24h)),
+		labelStyle.Render("Total Volume:      ")+valueStyle.Render(formatCurrency(m.stats.TotalVolume)),
+		labelStyle.Render("Avg Liquidity:     ")+valueStyle.Render(formatCurrency(m.stats.AvgLiquidity)),
+	)
+	sections = append(sections, platformStats)
 	
-	if m.stats.TopVolume != nil {
-		sections = append(sections, "", titleStyle.Render("TOP MARKET"))
+	topMarkets := getTopMarketsByVolume(m.markets, 10)
+	if len(topMarkets) > 0 {
+		sections = append(sections, "", "", titleStyle.Render("TOP 10 MARKETS BY TOTAL VOLUME"))
+		sections = append(sections, "")
 		
-		yesOdds, noOdds := api.ParseOdds(m.stats.TopVolume)
-		
-		topBox := lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(polyPink).
-			Padding(1, 3).
-			Width(m.width - 10).
-			Render(lipgloss.JoinVertical(
-				lipgloss.Left,
-				lipgloss.NewStyle().Bold(true).Foreground(polyLight).Render(m.stats.TopVolume.Question),
-				"",
-				StatsLabelStyle.Render("24h Volume: ")+VolumeStyle.Render(formatCurrency(m.stats.TopVolume.Volume24hr)),
-				StatsLabelStyle.Render("Yes Odds: ")+YesOddsStyle.Render(fmt.Sprintf("%.1f%%", yesOdds)),
-				StatsLabelStyle.Render("No Odds: ")+NoOddsStyle.Render(fmt.Sprintf("%.1f%%", noOdds)),
-			))
-		
-		sections = append(sections, topBox)
+		for i, market := range topMarkets {
+			yesOdds, _ := api.ParseOdds(&market)
+			line := fmt.Sprintf("%2d. %-50s %8s  YES: %5.1f%%",
+				i+1,
+				truncate(market.Question, 48),
+				formatCurrency(market.GetVolume()),
+				yesOdds)
+			sections = append(sections, lipgloss.NewStyle().Foreground(lipgloss.Color("#D1D5DB")).Render(line))
+		}
 	}
 	
-	if m.stats.TopGainer != nil && m.stats.TopGainerChange > 0 {
-		sections = append(sections, "", titleStyle.Render("BIGGEST MOVER"))
+	topVolume24h := getTopMarketsByVolume24h(m.markets, 10)
+	if len(topVolume24h) > 0 {
+		sections = append(sections, "", "", titleStyle.Render("TOP 10 MARKETS BY 24H VOLUME"))
+		sections = append(sections, "")
 		
-		yesOdds, noOdds := api.ParseOdds(m.stats.TopGainer)
+		for i, market := range topVolume24h {
+			yesOdds, _ := api.ParseOdds(&market)
+			line := fmt.Sprintf("%2d. %-50s %8s  YES: %5.1f%%",
+				i+1,
+				truncate(market.Question, 48),
+				formatCurrency(market.Volume24hr),
+				yesOdds)
+			sections = append(sections, lipgloss.NewStyle().Foreground(lipgloss.Color("#D1D5DB")).Render(line))
+		}
+	}
+	
+	movers := getTopMovers(m.markets, 10)
+	if len(movers) > 0 {
+		sections = append(sections, "", "", titleStyle.Render("BIGGEST 24H PRICE MOVERS"))
+		sections = append(sections, "")
 		
-		gainerBox := lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(greenYes).
-			Padding(1, 3).
-			Width(m.width - 10).
-			Render(lipgloss.JoinVertical(
-				lipgloss.Left,
-				lipgloss.NewStyle().Bold(true).Foreground(polyLight).Render(m.stats.TopGainer.Question),
-				"",
-				StatsLabelStyle.Render("24h Change: ")+lipgloss.NewStyle().Foreground(greenYes).Bold(true).Render(fmt.Sprintf("+%.2f%%", m.stats.TopGainerChange*100)),
-				StatsLabelStyle.Render("Yes Odds: ")+YesOddsStyle.Render(fmt.Sprintf("%.1f%%", yesOdds)),
-				StatsLabelStyle.Render("No Odds: ")+NoOddsStyle.Render(fmt.Sprintf("%.1f%%", noOdds)),
-			))
-		
-		sections = append(sections, gainerBox)
+		for i, market := range movers {
+			changeStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#10B981")).Bold(true)
+			if market.OneDayPriceChange < 0 {
+				changeStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#EF4444")).Bold(true)
+			}
+			
+			line := fmt.Sprintf("%2d. %-50s %s",
+				i+1,
+				truncate(market.Question, 48),
+				changeStyle.Render(fmt.Sprintf("%+6.2f%%", market.OneDayPriceChange*100)))
+			sections = append(sections, line)
+		}
 	}
 	
 	return lipgloss.JoinVertical(lipgloss.Left, sections...)
 }
 
-func (m Model) renderAbout() string {
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(polyPink).
-		MarginBottom(1)
+func getTopMarketsByVolume(markets []types.Market, limit int) []types.Market {
+	sorted := make([]types.Market, len(markets))
+	copy(sorted, markets)
 	
-	contentStyle := lipgloss.NewStyle().
-		Foreground(polyLight).
-		MarginBottom(1)
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].GetVolume() > sorted[j].GetVolume()
+	})
 	
-	featureStyle := lipgloss.NewStyle().
-		Foreground(polyBlue).
-		Bold(true)
-	
-	content := []string{
-		titleStyle.Render("POLYTERM - Polymarket Analytics Platform"),
-		"",
-		contentStyle.Render("A real-time terminal dashboard for tracking Polymarket prediction markets."),
-		"",
-		featureStyle.Render("FEATURES"),
-		contentStyle.Render("  • Live data from 150+ markets"),
-		contentStyle.Render("  • Real-time statistics and trending insights"),
-		contentStyle.Render("  • Detailed market information"),
-		contentStyle.Render("  • Auto-refresh every 30 seconds"),
-		contentStyle.Render("  • Beautiful color-coded UI"),
-		"",
-		featureStyle.Render("TECH STACK"),
-		contentStyle.Render("  • Go programming language"),
-		contentStyle.Render("  • Bubbletea TUI framework"),
-		contentStyle.Render("  • Lipgloss styling library"),
-		contentStyle.Render("  • Polymarket Gamma API"),
-		"",
-		featureStyle.Render("OPEN SOURCE"),
-		contentStyle.Render("  • MIT License"),
-		contentStyle.Render("  • Contributions welcome"),
-		contentStyle.Render("  • github.com/yourrepo/polyterm"),
-		"",
-		MutedStyle.Render("Press 1 to view markets, 2 for stats, or q to quit"),
+	if len(sorted) > limit {
+		sorted = sorted[:limit]
 	}
-	
-	return lipgloss.JoinVertical(lipgloss.Left, content...)
+	return sorted
 }
+
+func getTopMarketsByVolume24h(markets []types.Market, limit int) []types.Market {
+	sorted := make([]types.Market, len(markets))
+	copy(sorted, markets)
+	
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].Volume24hr > sorted[j].Volume24hr
+	})
+	
+	if len(sorted) > limit {
+		sorted = sorted[:limit]
+	}
+	return sorted
+}
+
+func getTopMovers(markets []types.Market, limit int) []types.Market {
+	sorted := make([]types.Market, len(markets))
+	copy(sorted, markets)
+	
+	sort.Slice(sorted, func(i, j int) bool {
+		absI := sorted[i].OneDayPriceChange
+		absJ := sorted[j].OneDayPriceChange
+		if absI < 0 {
+			absI = -absI
+		}
+		if absJ < 0 {
+			absJ = -absJ
+		}
+		return absI > absJ
+	})
+	
+	if len(sorted) > limit {
+		sorted = sorted[:limit]
+	}
+	return sorted
+}
+
 
 func (m Model) renderMarketDetail() string {
 	displayMarkets := m.filteredMarkets

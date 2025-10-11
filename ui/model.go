@@ -28,7 +28,6 @@ type pageMode int
 const (
 	pageMarkets pageMode = iota
 	pageStats
-	pageAbout
 )
 
 type sortMode int
