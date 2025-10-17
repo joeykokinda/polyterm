@@ -134,14 +134,7 @@ Uses Polymarket's public Gamma API:
 - [Lipgloss](https://github.com/charmbracelet/lipgloss) - Styling
 - [Bubbles](https://github.com/charmbracelet/bubbles) - UI components
 
-## Color Scheme
 
-Inspired by Polymarket's brand:
-- Primary: Indigo Blue (#6366F1)
-- Secondary: Purple (#8B5CF6)
-- Accent: Pink (#EC4899)
-- Success: Green (#10B981)
-- Error: Red (#EF4444)
 
 ## License
 
